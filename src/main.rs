@@ -23,6 +23,7 @@ use web_rwkv::{
     BackedModelState, Environment, Instance, LayerFlags, Model, ModelBuilder, Quantization,
     Tokenizer,
 };
+use std::time::{Instant};
 
 mod chat;
 mod completion;
@@ -231,6 +232,7 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
         } = request;
 
         log::trace!("{:#?}", sampler);
+        println!("### Start sampling");
 
         let state = model.create_state();
         let remain = {
@@ -255,10 +257,15 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
 
         let mut tokens = tokenizer.encode(&remain).unwrap_or_default();
         let _ = token_sender.send(Token::Start);
+        let start_token_length = tokens.len();
 
         'run: {
             token_counter.prompt_tokens = tokens.len();
             token_counter.total_tokens = tokens.len();
+            
+            // let mut total = token_counter.total_tokens;
+            let start = Instant::now(); 
+            println!("### token_counter.total_tokens: {:?}", token_counter);
 
             log::trace!("{}", String::from_utf8(remain).unwrap_or_default());
 
@@ -290,11 +297,12 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
                     .and_then(|x| String::from_utf8(x).ok())
                     .unwrap_or_default();
 
-                print!("{word}");
+                // print!("{word}");
 
                 model_text += &word;
                 token_counter.completion_tokens += 1;
                 token_counter.total_tokens += 1;
+                // total = token_counter.total_tokens;
 
                 let count = occurrences.get(&token).copied().unwrap_or_default();
                 occurrences.insert(token, count + 1);
@@ -303,6 +311,14 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
                 tokens = vec![token];
 
                 if token == 0 || stop.iter().any(|x| model_text.contains(x)) {
+                    let created_token_length = (token_counter.total_tokens - start_token_length) as f64;
+                    println!("### start token: {:?}", start_token_length);
+                    println!("### end token: {:?}", token_counter.total_tokens);
+                    println!("### token length: {:?}", created_token_length);
+                    let duration = start.elapsed().as_millis() as f64;
+                    println!("### Generation time : {:?} ms", duration);  
+                    let t_s = created_token_length / duration * 1000.0;
+                    println!("### Generated token/seconds: {:?} t/s", t_s);  
                     let _ = token_sender.send(Token::Stop(FinishReason::Stop, token_counter));
                     break 'run;
                 }

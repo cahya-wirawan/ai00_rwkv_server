@@ -29,9 +29,9 @@ pub enum Role {
 impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Role::System => write!(f, "System"),
-            Role::User => write!(f, "User"),
-            Role::Assistant => write!(f, "Assistant"),
+            Role::System => write!(f, "@@@@ System"),
+            Role::User => write!(f, "@@@@ User"),
+            Role::Assistant => write!(f, "@@@@ Assistant"),
         }
     }
 }
@@ -60,8 +60,8 @@ impl Default for ChatRequest {
     fn default() -> Self {
         Self {
             messages: OptionArray::default(),
-            max_tokens: 256,
-            stop: OptionArray::Item("\n\n".into()),
+            max_tokens: 4096,
+            stop: OptionArray::Item("@@@@".into()),
             stream: false,
             temperature: 1.0,
             top_p: 1.0,
@@ -91,12 +91,15 @@ impl From<ChatRequest> for GenerateRequest {
             .map(|ChatRecord { role, content }| {
                 let role = role.to_string();
                 let content = content.trim();
-                format!("{role}: {content}")
+                format!("{role}:\n{content}")
             })
             .join("\n\n");
 
         let assistant = Role::Assistant.to_string();
-        let prompt = prompt + &format!("\n\n{assistant}:");
+        let system = Role::System.to_string();
+        let prompt = prompt + &format!("\n\n{assistant}:\n");
+        let system_text = format!("{system}:\nYou are an AI Assistant who helps user to find answer or information. Your name is NusaLM, and you are developed by Cahya Wirawan. Cahya Wirawan is a Machine Learning Engineer living in Austria.");
+        let prompt = prompt.replace(&(system + ":"), &system_text);
 
         let max_tokens = max_tokens.min(crate::MAX_TOKENS);
         let stop = stop.into();
@@ -181,6 +184,7 @@ async fn chat_completions_one(
             _ => unreachable!(),
         }
     }
+    // println!("### text: <<< {text} >>>");
 
     Json(ChatResponse {
         object: "chat.completion".into(),
@@ -197,7 +201,7 @@ async fn chat_completions_one(
     })
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum PartialChatRecord {
     #[default]
@@ -251,7 +255,7 @@ async fn chat_completions_stream(
     });
 
     let stream = token_receiver.into_stream().map(move |token| {
-        let choice = match token {
+        let mut choice = match token {
             Token::Start => PartialChatChoice {
                 delta: PartialChatRecord::Role(Role::Assistant),
                 ..Default::default()
@@ -268,6 +272,11 @@ async fn chat_completions_stream(
             _ => unreachable!(),
         };
 
+        let stop_token = PartialChatRecord::Content("@@@@".to_string());
+        if choice.delta == stop_token {
+            choice.delta = PartialChatRecord::Content("".to_string());
+        }
+
         let json = serde_json::to_string(&PartialChatResponse {
             object: "chat.completion.chunk".into(),
             model: model_name.clone(),
@@ -275,7 +284,7 @@ async fn chat_completions_stream(
         })?;
         Ok(Event::default().data(json))
     });
-
+    
     Sse::new(stream)
 }
 
