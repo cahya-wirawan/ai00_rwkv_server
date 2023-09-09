@@ -110,7 +110,7 @@ async fn completions_one(
         .unwrap_or_default();
     let mut occurrences:HashMap<u16, f32> = HashMap::new();
     for key in tokens.iter().take(MAX_PENALTY_COUNT) {
-        if tokens.contains(key) {
+        if occurrences.contains_key(key) {
             occurrences.insert(*key, occurrences[key] + 1.0);
         }
         else {
@@ -197,7 +197,7 @@ async fn completions_stream(
         .unwrap_or_default();
     let mut occurrences:HashMap<u16, f32> = HashMap::new();
     for key in tokens.iter().take(MAX_PENALTY_COUNT) {
-        if tokens.contains(key) {
+        if occurrences.contains_key(key) {
             occurrences.insert(*key, occurrences[key] + 1.0);
         }
         else {

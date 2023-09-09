@@ -154,7 +154,7 @@ async fn chat_completions_one(
     let model_tokens = tokenizer.encode(model_text.as_bytes()).unwrap_or_default();
     let mut occurrences:HashMap<u16, f32> = HashMap::new();
     for key in model_tokens.iter().take(MAX_PENALTY_COUNT) {
-        if model_tokens.contains(key) {
+        if occurrences.contains_key(key) {
             occurrences.insert(*key, occurrences[key] + 1.0);
         }
         else {
@@ -250,7 +250,7 @@ async fn chat_completions_stream(
     let model_tokens = tokenizer.encode(model_text.as_bytes()).unwrap_or_default();
     let mut occurrences:HashMap<u16, f32> = HashMap::new();
     for key in model_tokens.iter().take(MAX_PENALTY_COUNT) {
-        if model_tokens.contains(key) {
+        if occurrences.contains_key(key) {
             occurrences.insert(*key, occurrences[key] + 1.0);
         }
         else {
