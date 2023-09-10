@@ -36,7 +36,7 @@ use crate::sampler::Sampler;
 pub const MAX_TOKENS: usize = 4096;
 pub const MAX_PENALTY_COUNT: usize = 1024;
 pub const STATE_CACHE_LRU: usize = 16;
-pub const ALPHA_DECAY: f32 = 0.95;
+pub const ALPHA_DECAY: f32 = 0.995;
 
 #[derive(Debug)]
 pub enum Token {
