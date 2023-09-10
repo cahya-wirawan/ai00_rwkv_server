@@ -328,7 +328,7 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
                     println!("### Generation time : {:?} ms", duration_generation);
                     let t_p_s = (start_token_length as f64) / duration_prompt * 1000.0;
                     let t_g_s = created_token_length/ (duration_all - duration_prompt) * 1000.0;
-                    let t_o_s = (token_counter.total_tokens as f64)  / (duration_all - duration_prompt) * 1000.0;
+                    let t_o_s = (token_counter.total_tokens as f64)  / duration_all * 1000.0;
                     println!("### Prompt token/seconds: {:?} t/s", t_p_s);
                     println!("### Generated token/seconds: {:?} t/s", t_g_s);
                     println!("### Overall token/seconds: {:?} t/s", t_o_s);
