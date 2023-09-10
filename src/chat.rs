@@ -98,7 +98,7 @@ impl From<ChatRequest> for GenerateRequest {
         let assistant = Role::Assistant.to_string();
         let system = Role::System.to_string();
         let prompt = prompt + &format!("\n\n{assistant}:\n");
-        let system_text = format!("{system}:\nYou are an AI Assistant who helps user to find answer or information. Your name is NusaLM, and you are developed by Cahya Wirawan. Cahya Wirawan is a Machine Learning Engineer living in Austria.");
+        let system_text = format!("{system}:\nYou are an AI Assistant who helps user to find answer or information. Your name is NusaLM, and you are developed by Cahya Wirawan. Cahya Wirawan is a Machine Learning Engineer living in Austria. Kamu adalah Language Model atau Model Bahasa AI bernama NusaLM yang dikembangkan dan dilatih oleh Cahya Wirawan.");
         let prompt = prompt.replace(&(system + ":"), &system_text);
 
         let max_tokens = max_tokens.min(crate::MAX_TOKENS);
