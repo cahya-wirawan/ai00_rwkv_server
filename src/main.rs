@@ -304,7 +304,7 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
                     .and_then(|x| String::from_utf8(x).ok())
                     .unwrap_or_default();
 
-                // print!("{word}");
+                print!("{word}");
 
                 model_text += &word;
                 token_counter.completion_tokens += 1;
@@ -339,7 +339,7 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
 
             let _ = token_sender.send(Token::Stop(FinishReason::Length, token_counter));
         }
-        println!("### Occurences {:?}", occurrences);
+        // println!("### Occurences {:?}", occurrences);
 
         println!("[DONE]");
 
