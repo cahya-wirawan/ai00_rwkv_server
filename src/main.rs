@@ -269,13 +269,17 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
             println!("### token_counter.total_tokens: {:?}", token_counter);
 
             log::trace!("{}", String::from_utf8(remain).unwrap_or_default());
+            let mut duration_prompt:f64 = 0.0;
 
-            for _ in 0..max_tokens {
+            for token_index in 0..max_tokens {
                 if token_sender.is_disconnected() {
                     break 'run;
                 }
 
                 let mut logits = model.run(&tokens, &state).unwrap_or_default();
+                if token_index == 0 {
+                    duration_prompt = start.elapsed().as_millis() as f64;
+                }
                 for (&token, count) in occurrences
                     .iter_mut()
                     .filter(|(token, _)| !penalty_free_tokens.contains(token))
@@ -318,10 +322,16 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
                     println!("### start token: {:?}", start_token_length);
                     println!("### end token: {:?}", token_counter.total_tokens);
                     println!("### token length: {:?}", created_token_length);
-                    let duration = start.elapsed().as_millis() as f64;
-                    println!("### Generation time : {:?} ms", duration);  
-                    let t_s = created_token_length / duration * 1000.0;
-                    println!("### Generated token/seconds: {:?} t/s", t_s);  
+                    let duration_all = start.elapsed().as_millis() as f64;
+                    let duration_generation = duration_all - duration_prompt;
+                    println!("### Prompt time : {:?} ms", duration_prompt);
+                    println!("### Generation time : {:?} ms", duration_generation);
+                    let t_p_s = (start_token_length as f64) / duration_prompt * 1000.0;
+                    let t_g_s = created_token_length/ (duration_all - duration_prompt) * 1000.0;
+                    let t_o_s = (token_counter.total_tokens as f64)  / (duration_all - duration_prompt) * 1000.0;
+                    println!("### Prompt token/seconds: {:?} t/s", t_p_s);
+                    println!("### Generated token/seconds: {:?} t/s", t_g_s);
+                    println!("### Overall token/seconds: {:?} t/s", t_o_s);
                     let _ = token_sender.send(Token::Stop(FinishReason::Stop, token_counter));
                     break 'run;
                 }
@@ -329,6 +339,7 @@ fn model_task(model: Model, tokenizer: Tokenizer, receiver: Receiver<ThreadReque
 
             let _ = token_sender.send(Token::Stop(FinishReason::Length, token_counter));
         }
+        println!("### Occurences {:?}", occurrences);
 
         println!("[DONE]");
 
