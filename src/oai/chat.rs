@@ -203,7 +203,7 @@ async fn chat_completions_one(
     })
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 enum PartialChatRecord {
     #[default]
