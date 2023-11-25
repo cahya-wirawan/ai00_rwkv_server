@@ -30,9 +30,9 @@ pub enum Role {
 impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Role::System => write!(f, "System"),
-            Role::User => write!(f, "User"),
-            Role::Assistant => write!(f, "Assistant"),
+            Role::System => write!(f, "@@@@ System"),
+            Role::User => write!(f, "@@@@ User"),
+            Role::Assistant => write!(f, "@@@@ Assistant"),
         }
     }
 }
@@ -64,8 +64,8 @@ impl Default for ChatRequest {
         Self {
             messages: Array::default(),
             names: HashMap::new(),
-            max_tokens: 256,
-            stop: Array::Item("\n\n".into()),
+            max_tokens: 4096,
+            stop: Array::Item("@@@@".into()),
             stream: false,
             temperature: 1.0,
             top_p: 1.0,
@@ -100,7 +100,7 @@ impl From<ChatRequest> for GenerateRequest {
                 let role = names.get(&role).cloned().unwrap_or(role.to_string());
                 let content = re.replace_all(&content, "\n");
                 let content = content.trim();
-                format!("{role}: {content}")
+                format!("{role}:\n{content}")
             })
             .join("\n\n");
         let model_text = Vec::from(messages)
@@ -243,7 +243,7 @@ async fn chat_completions_stream(
     });
 
     let stream = token_receiver.into_stream().map(move |token| {
-        let choice = match token {
+        let mut choice = match token {
             Token::Start => PartialChatChoice {
                 delta: PartialChatRecord::Role(Role::Assistant),
                 ..Default::default()
@@ -259,6 +259,10 @@ async fn chat_completions_stream(
             Token::Done => return Ok(Event::default().data("[DONE]")),
             _ => unreachable!(),
         };
+        let stop_token = PartialChatRecord::Content("@@@@".to_string());
+        if choice.delta == stop_token {
+            choice.delta = PartialChatRecord::Content("".to_string());
+        }
 
         let json = serde_json::to_string(&PartialChatResponse {
             object: "chat.completion.chunk".into(),

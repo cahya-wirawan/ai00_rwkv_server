@@ -33,7 +33,7 @@ impl Default for CompletionRequest {
     fn default() -> Self {
         Self {
             prompt: Array::default(),
-            max_tokens: 256,
+            max_tokens: 4096,
             stop: Array::default(),
             stream: false,
             temperature: 1.0,
