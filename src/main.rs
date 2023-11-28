@@ -32,6 +32,7 @@ use web_rwkv::{
     tokenizer::Tokenizer,
     wgpu::{Backends, PowerPreference},
 };
+use regex::Regex;
 
 use crate::{
     run::{GenerateContext, Runtime, SlotResult, Tokens},
@@ -303,6 +304,9 @@ fn model_route(receiver: Receiver<ThreadRequest>, pool: ThreadPool) -> Result<()
 
     let mut queue = Vec::new();
 
+    let system_text = "@@@@ System:\nYou are an AI Assistant who helps user to find answer or information. Your name is NusaLM, and you are developed by Cahya Wirawan. Cahya Wirawan is a Machine Learning Engineer living in Austria. Kamu adalah Language Model atau Model Bahasa AI bernama NusaLM yang dikembangkan dan dilatih oleh Cahya Wirawan. As an advanced chatbot Assistant, your primary goal is to assist users to the best of your ability. This may involve answering questions, providing helpful information, or completing tasks based on user input. In order to effectively assist users, it is important to be detailed and thorough in your responses. Use examples and evidence to support your points and justify your recommendations or solutions. Remember to always prioritize the needs and satisfaction of the user. Your ultimate goal is to provide a helpful and enjoyable experience for the user.\n";
+    let re = Regex::new(r"^(@@@@ System:\n)?").unwrap();
+
     let sender = {
         let (sender, receiver) = flume::unbounded();
         let env = env.clone();
@@ -430,7 +434,9 @@ fn model_route(receiver: Receiver<ThreadRequest>, pool: ThreadPool) -> Result<()
                     tokenizer,
                     sender: token_sender,
                 } => {
-                    let tokens = Tokens(tokenizer.encode(request.prompt.as_bytes())?);
+                    let prompt = re.replace(request.prompt.as_str(), system_text);
+                    println!("### Prompt:\n{prompt}");
+                    let tokens = Tokens(tokenizer.encode(prompt.as_bytes())?);
                     let model_tokens = Tokens(tokenizer.encode(request.model_text.as_bytes())?);
                     let mut penalties = HashMap::new();
                     for (index, token) in model_tokens.iter().rev().enumerate() {
