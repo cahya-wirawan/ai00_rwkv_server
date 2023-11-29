@@ -40,7 +40,7 @@ impl Default for CompletionRequest {
             top_p: 1.0,
             presence_penalty: 0.0,
             frequency_penalty: 0.0,
-            penalty_decay: 1.0,
+            penalty_decay: 0.995,
             logit_bias: HashMap::new(),
         }
     }
