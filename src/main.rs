@@ -434,6 +434,7 @@ fn model_route(receiver: Receiver<ThreadRequest>, pool: ThreadPool) -> Result<()
                     tokenizer,
                     sender: token_sender,
                 } => {
+                    println!("### Request:\n{:#?}", request.sampler);
                     let prompt = re.replace(request.prompt.as_str(), system_text);
                     println!("### Prompt:\n{prompt}");
                     let tokens = Tokens(tokenizer.encode(prompt.as_bytes())?);

@@ -11,6 +11,8 @@ use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
+use std::time::{Instant};
+
 use crate::{
     request_info, sampler::Sampler, Array, FinishReason, GenerateRequest, ThreadRequest,
     ThreadState, Token, TokenCounter,
@@ -242,21 +244,41 @@ async fn chat_completions_stream(
         sender: token_sender,
     });
 
+    let mut counter = 0;
+    let start = Instant::now();
+    let mut start_time:f64 = 0.0;
     let stream = token_receiver.into_stream().map(move |token| {
         let mut choice = match token {
-            Token::Start => PartialChatChoice {
-                delta: PartialChatRecord::Role(Role::Assistant),
-                ..Default::default()
+            Token::Start => {
+                println!("### Start");
+                start_time = start.elapsed().as_millis() as f64;
+                PartialChatChoice {
+                    delta: PartialChatRecord::Role(Role::Assistant),
+                    ..Default::default()
+                }
             },
-            Token::Token(token) => PartialChatChoice {
-                delta: PartialChatRecord::Content(token),
-                ..Default::default()
+            Token::Token(token) => {
+                counter += 1;
+                print!("{}", token);
+                PartialChatChoice {
+                    delta: PartialChatRecord::Content(token),
+                    ..Default::default()
+                }
             },
             Token::Stop(finish_reason, _) => PartialChatChoice {
                 finish_reason,
                 ..Default::default()
             },
-            Token::Done => return Ok(Event::default().data("[DONE]")),
+            Token::Done => {
+                let stop_time = start.elapsed().as_millis() as f64;
+                let tokens_per_second = (counter as f64) / (stop_time - start_time) * 1000.0;
+                println!(); // newline
+                println!("### Token length: {:?}", counter);
+                println!("### Duration: {:?}", (stop_time - start_time)/1000.0);
+                println!("### Prompt token/seconds: {:?} t/s", tokens_per_second);
+                println!("### Done");
+                return Ok(Event::default().data("[DONE]"));
+            },
             _ => unreachable!(),
         };
         let stop_token = PartialChatRecord::Content("@@@@".to_string());
