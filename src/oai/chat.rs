@@ -10,6 +10,7 @@ use futures_util::{Stream, StreamExt};
 use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::time::{Instant};
 
 use crate::{
     request_info, sampler::Sampler, Array, FinishReason, GenerateRequest, ThreadRequest,
@@ -30,9 +31,9 @@ pub enum Role {
 impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Role::System => write!(f, "System"),
-            Role::User => write!(f, "User"),
-            Role::Assistant => write!(f, "Assistant"),
+            Role::System => write!(f, "@@@@ System"),
+            Role::User => write!(f, "@@@@ User"),
+            Role::Assistant => write!(f, "@@@@ Assistant"),
         }
     }
 }
@@ -64,14 +65,14 @@ impl Default for ChatRequest {
         Self {
             messages: Array::default(),
             names: HashMap::new(),
-            max_tokens: 256,
-            stop: Array::Item("\n\n".into()),
+            max_tokens: 4096,
+            stop: Array::Item("@@@@".into()),
             stream: false,
             temperature: 1.0,
             top_p: 1.0,
             presence_penalty: 0.0,
             frequency_penalty: 0.0,
-            penalty_decay: 1.0,
+            penalty_decay: 0.995,
             logit_bias: HashMap::new(),
         }
     }
@@ -100,7 +101,7 @@ impl From<ChatRequest> for GenerateRequest {
                 let role = names.get(&role).cloned().unwrap_or(role.to_string());
                 let content = re.replace_all(&content, "\n");
                 let content = content.trim();
-                format!("{role}: {content}")
+                format!("{role}:\n{content}")
             })
             .join("\n\n");
         let model_text = Vec::from(messages)
@@ -203,7 +204,7 @@ async fn chat_completions_one(
     })
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 enum PartialChatRecord {
     #[default]
@@ -241,22 +242,42 @@ async fn chat_completions_stream(
         tokenizer: info.tokenizer,
         sender: token_sender,
     });
+    let mut counter = 0;
+    let start = Instant::now();
+    let mut start_time:f64 = 0.0;
 
     let stream = token_receiver.into_stream().map(move |token| {
         let choice = match token {
-            Token::Start => PartialChatChoice {
-                delta: PartialChatRecord::Role(Role::Assistant),
-                ..Default::default()
+            Token::Start => {
+                println!("### Start");
+                start_time = start.elapsed().as_millis() as f64;
+                PartialChatChoice {
+                    delta: PartialChatRecord::Role(Role::Assistant),
+                    ..Default::default()
+                }
             },
-            Token::Token(token) => PartialChatChoice {
-                delta: PartialChatRecord::Content(token),
-                ..Default::default()
+            Token::Token(token) => {
+                counter += 1;
+                print!("{}", token);
+                PartialChatChoice {
+                    delta: PartialChatRecord::Content(token),
+                    ..Default::default()
+                }
             },
             Token::Stop(finish_reason, _) => PartialChatChoice {
                 finish_reason,
                 ..Default::default()
             },
-            Token::Done => return Ok(Event::default().data("[DONE]")),
+            Token::Done => {
+                let stop_time = start.elapsed().as_millis() as f64;
+                let tokens_per_second = (counter as f64) / (stop_time - start_time) * 1000.0;
+                println!();
+                println!("### Token length: {:?}", counter);
+                println!("### Duration: {:?}", (stop_time - start_time)/1000.0);
+                println!("### Prompt token/seconds: {:?} t/s", tokens_per_second);
+                println!("### Done");
+                return Ok(Event::default().data("[DONE]"))
+            },
             _ => unreachable!(),
         };
 
