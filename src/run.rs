@@ -522,6 +522,9 @@ where
                     if context.last_token != 0 {
                         if let Some(prob) = prob {
                             if context.last_token != NEWLINE {
+                                let word = self.tokenizer.decode(&[context.last_token]).unwrap_or_default();
+                                let word = String::from_utf8(word).unwrap_or_default();
+                                log::info!("Avoid repetition with last token: {}", word);
                                 prob[context.last_token as usize] = 0.0;
                             }
                         }
