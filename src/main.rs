@@ -497,6 +497,7 @@ async fn model_route(receiver: Receiver<ThreadRequest>) -> Result<()> {
                         model_tokens: Default::default(),
                         request,
                         sender: token_sender,
+                        last_token: Default::default(),
                     };
 
                     let env = env.clone();

@@ -22,6 +22,7 @@ use web_rwkv::{
 
 use crate::{Environment, FinishReason, GenerateRequest, Token, TokenCounter, STATE_CHUNK_SIZE};
 
+const NEWLINE: u16 = 11;
 #[derive(Debug)]
 pub enum SlotResult {
     /// There is an idle slot ready to be picked up.
@@ -207,6 +208,8 @@ pub struct GenerateContext {
     pub request: GenerateRequest,
     /// To send back generated tokens.
     pub sender: Sender<Token>,
+    /// Last token after new line.
+    pub last_token: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -505,10 +508,27 @@ where
             })
             .collect::<Vec<_>>();
 
-        let probs = match occupancy {
+        let mut probs = match occupancy {
             0 => vec![None; payloads.len()],
             _ => self.model.softmax(logits).await?,
         };
+        for (payload, prob) in itertools::multizip((
+            payloads.into_iter(),
+            probs.iter_mut(),
+        )) {
+            if let Payload::Busy(context) = payload {
+                let len = context.suffix.0.len();
+                if len != 0 && context.suffix.0[0] == NEWLINE {
+                    if context.last_token != 0 {
+                        if let Some(prob) = prob {
+                            if context.last_token != NEWLINE {
+                                prob[context.last_token as usize] = 0.0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         let output_tokens = payloads
             .par_iter()
             .zip_eq(probs.into_par_iter())
@@ -526,6 +546,12 @@ where
             let mut done = false;
 
             if let Payload::Busy(context) = payload {
+                if let Some(token) = token {
+                    let len = context.suffix.0.len();
+                    if len != 0 && context.suffix.0[0] == NEWLINE {
+                        context.last_token = token;
+                    }
+                }
                 let prefix = std::mem::take(&mut context.prefix);
                 let suffix = std::mem::take(&mut context.suffix);
                 let model_tokens = [prefix.0, suffix.0].concat();
