@@ -44,6 +44,7 @@ mod config;
 mod oai;
 mod run;
 mod sampler;
+mod fifo;
 
 pub const MAX_TOKENS: usize = 4096;
 pub const STATE_CHUNK_SIZE: usize = 4;
@@ -497,7 +498,9 @@ async fn model_route(receiver: Receiver<ThreadRequest>) -> Result<()> {
                         model_tokens: Default::default(),
                         request,
                         sender: token_sender,
-                        last_token: Default::default(),
+                        last_new_line_index: Default::default(),
+                        short_sentence_counter: Default::default(),
+                        last_tokens: Default::default()
                     };
 
                     let env = env.clone();
