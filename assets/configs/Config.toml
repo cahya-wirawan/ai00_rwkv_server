@@ -2,8 +2,9 @@
 embed_device = "Cpu"                                       # Device to put the embed tensor ("Cpu" or "Gpu").
 max_batch = 16                                             # The maximum batches that are cached on GPU.
 max_runtime_batch = 8                                      # The maximum batches that can be scheduled for inference at the same time.
-model_name = "RWKV-x060-World-3B-v2.1-20240417-ctx4096.st" # Name of the model.
-model_path = "assets/models"                               # Path to the folder containing all models.
+# model_name = "RWKV-x060-World-3B-v2-20240228-ctx4096.st" # Name of the model.
+model_path = "assets/models"                             # Path to the folder containing all models.
+model_name = "v5/rwkv-1b5-16384-instruction-116.st"
 quant = 0                                                  # Layers to be quantized.
 quant_type = "Int8"                                        # Quantization type ("Int8" or "NF4").
 stop = ["\n\n"]                                            # Additional stop words in generation.

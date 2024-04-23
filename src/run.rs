@@ -31,12 +31,16 @@ use crate::{
     middleware::{Environment, FinishReason, GenerateRequest, ReloadRequest, Token, TokenCounter},
     sampler::{bnf::BnfSampler, Transformer},
 };
+use crate::{fifo::Fifo};
 
 const _PENALTY_FREE_LIST: [&str; 5] = ["\n", ",", ".", "\u{002c}", "\u{002f}"];
 const PROMPT_CACHE_TOKENS: usize = 32;
 const MAX_CACHE_ITEMS: usize = 256;
 const SAMPLER_ARENA_CAPACITY: usize = 1048576;
 const GRAMMAR_ARENA_CAPACITY: usize = 1024;
+const NEWLINE: u16 = 11;
+const SHORT_SENTENCE_LENGTH: u16 = 30;
+const MAX_SHORT_SENTENCES: u16 = 10;
 
 #[derive(Debug)]
 pub enum SlotResult {
@@ -230,6 +234,12 @@ pub struct GenerateContext {
     pub request: GenerateRequest,
     /// To send back generated tokens.
     pub sender: Sender<Token>,
+    /// Last New line index
+    pub last_new_line_index: u16,
+    /// New line counter
+    pub short_sentence_counter: u16,
+    /// List of last_token
+    pub last_tokens: Fifo,
 }
 
 #[derive(Debug)]
@@ -673,8 +683,33 @@ impl Runtime {
         {
             match (payload, output) {
                 (Payload::Busy(context), output) if output.size() > 0 => {
+                    let len = context.suffix.0.len();
+                    if len != 0 && context.suffix.0[0] == NEWLINE {
+                        if context.last_tokens.get_size() != 0 {
+                            let new_line_index = context.model_text.len() as u16 - 1;
+                            if (new_line_index - context.last_new_line_index < SHORT_SENTENCE_LENGTH) ||
+                                (context.last_tokens.last() >= 50 && context.last_tokens.last() <= 60) {
+                                context.short_sentence_counter += 1;
+                            }
+                            if context.short_sentence_counter >= MAX_SHORT_SENTENCES {
+                                let mut data = output.data().to_vec();
+                                data[0] = f16::from_f32(1.0);
+                            }
+                            if context.last_tokens.last() != NEWLINE {
+                                for last_token in context.last_tokens.iter() {
+                                    let mut data = output.data().to_vec();
+                                    data[*last_token as usize] = f16::from_f32(0.0);
+                                }
+                            }
+                            context.last_new_line_index = new_line_index;
+                        }
+                    }
+
                     let num_vocab = self.info.num_vocab;
                     let sampler = context.request.sampler.clone();
+                    let data = output.data().clone();
+                    println!("len:{:?}", data.len());
+                    println!("data{:?}", data[0]);
                     set.spawn(async move {
                         let data = output.map(|x| x.to_f32()).to_vec();
                         assert_eq!(data.len(), num_vocab);
@@ -711,6 +746,11 @@ impl Runtime {
             let Some(&token) = tokens.get(&batch) else {
                 continue;
             };
+
+            let len = context.suffix.0.len();
+            if len != 0 && context.suffix.0[0] == NEWLINE {
+                _ = context.last_tokens.push(token);
+            }
 
             // cache the prompt if it is too long.
             if !context.prompt_cached && context.prompt_tokens.len() > PROMPT_CACHE_TOKENS {

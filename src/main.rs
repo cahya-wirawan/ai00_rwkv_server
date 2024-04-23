@@ -29,6 +29,7 @@ mod config;
 mod middleware;
 mod run;
 mod sampler;
+mod fifo;
 
 pub fn build_path(path: impl AsRef<Path>, name: impl AsRef<Path>) -> Result<PathBuf> {
     let permitted = path.as_ref();

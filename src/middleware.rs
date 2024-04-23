@@ -543,6 +543,9 @@ pub async fn model_route(receiver: Receiver<ThreadRequest>) -> Result<()> {
                         bnf_sampler: None,
                         request,
                         sender: token_sender,
+                        last_new_line_index: Default::default(),
+                        last_tokens: Default::default(),
+                        short_sentence_counter: Default::default(),
                     };
 
                     let env = env.clone();
