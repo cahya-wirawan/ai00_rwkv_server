@@ -29,7 +29,7 @@ ip = "0.0.0.0"   # Use IpV4.
 force_pass = true
 port = 65530
 slot = "permisionkey"
-tls = true
+tls = false
 
 [[listen.app_keys]] # Allow mutiple app keys.
 app_id = "JUSTAISERVER"
