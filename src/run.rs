@@ -38,7 +38,7 @@ const PROMPT_CACHE_TOKENS: usize = 32;
 const MAX_CACHE_ITEMS: usize = 256;
 const SAMPLER_ARENA_CAPACITY: usize = 1048576;
 const GRAMMAR_ARENA_CAPACITY: usize = 1024;
-const NEWLINE: u16 = 11;
+const NEWLINE_TOKEN_ID: u16 = 11;
 const SHORT_SENTENCE_LENGTH: u16 = 30;
 const MAX_SHORT_SENTENCES: u16 = 10;
 
@@ -683,8 +683,9 @@ impl Runtime {
         {
             match (payload, output) {
                 (Payload::Busy(context), output) if output.size() > 0 => {
+                    let mut probs = output.data().to_vec();
                     let len = context.suffix.0.len();
-                    if len != 0 && context.suffix.0[0] == NEWLINE {
+                    if len != 0 && context.suffix.0[0] == NEWLINE_TOKEN_ID {
                         if context.last_tokens.get_size() != 0 {
                             let new_line_index = context.model_text.len() as u16 - 1;
                             if (new_line_index - context.last_new_line_index < SHORT_SENTENCE_LENGTH) ||
@@ -692,13 +693,11 @@ impl Runtime {
                                 context.short_sentence_counter += 1;
                             }
                             if context.short_sentence_counter >= MAX_SHORT_SENTENCES {
-                                let mut data = output.data().to_vec();
-                                data[0] = f16::from_f32(1.0);
+                                probs[0] = f16::from_f32(1.0);
                             }
-                            if context.last_tokens.last() != NEWLINE {
+                            if context.last_tokens.last() != NEWLINE_TOKEN_ID {
                                 for last_token in context.last_tokens.iter() {
-                                    let mut data = output.data().to_vec();
-                                    data[*last_token as usize] = f16::from_f32(0.0);
+                                    probs[*last_token as usize] = f16::from_f32(0.0);
                                 }
                             }
                             context.last_new_line_index = new_line_index;
@@ -707,11 +706,8 @@ impl Runtime {
 
                     let num_vocab = self.info.num_vocab;
                     let sampler = context.request.sampler.clone();
-                    let data = output.data().clone();
-                    println!("len:{:?}", data.len());
-                    println!("data{:?}", data[0]);
                     set.spawn(async move {
-                        let data = output.map(|x| x.to_f32()).to_vec();
+                        let data: Vec<f32> = probs.into_iter().map(|x| x.to_f32()).collect();
                         assert_eq!(data.len(), num_vocab);
                         let token = sampler.write().await.sample(&data);
                         (batch, token)
@@ -733,6 +729,13 @@ impl Runtime {
                 continue;
             };
 
+            let last_suffix_len = context.suffix.0.len();
+            let last_suffix = if last_suffix_len != 0 {
+                context.suffix.0[last_suffix_len-1]
+            } else {
+                0
+            };
+
             let prefix = std::mem::take(&mut context.prefix);
             let suffix = std::mem::take(&mut context.suffix);
             let model_tokens = [prefix.0, suffix.0].concat();
@@ -747,8 +750,7 @@ impl Runtime {
                 continue;
             };
 
-            let len = context.suffix.0.len();
-            if len != 0 && context.suffix.0[0] == NEWLINE {
+            if last_suffix == NEWLINE_TOKEN_ID {
                 _ = context.last_tokens.push(token);
             }
 
