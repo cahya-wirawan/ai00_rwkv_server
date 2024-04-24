@@ -31,9 +31,9 @@ pub enum Role {
 impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Role::System => write!(f, "System"),
-            Role::User => write!(f, "User"),
-            Role::Assistant => write!(f, "Assistant"),
+            Role::System => write!(f, "@@@@ System"),
+            Role::User => write!(f, "@@@@ User"),
+            Role::Assistant => write!(f, "@@@@ Assistant"),
         }
     }
 }
@@ -69,7 +69,7 @@ impl Default for ChatRequest {
             messages: Array::default(),
             names: HashMap::new(),
             max_tokens: 256,
-            stop: Array::Item("\n\n".into()),
+            stop: Array::Item("@@@@".into()),
             stream: false,
             bias: HashMap::new(),
             sampler: Default::default(),
@@ -104,7 +104,7 @@ impl From<ChatRequest> for GenerateRequest {
                 let role = names.get(&role).cloned().unwrap_or(role.to_string());
                 let content = re.replace_all(&content, "\n");
                 let content = content.trim();
-                format!("{role}: {content}")
+                format!("{role}:\n{content}")
             })
             .join("\n\n");
         let model_text = Vec::from(messages)
