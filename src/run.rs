@@ -39,6 +39,7 @@ const MAX_CACHE_ITEMS: usize = 256;
 const SAMPLER_ARENA_CAPACITY: usize = 1048576;
 const GRAMMAR_ARENA_CAPACITY: usize = 1024;
 const NEWLINE_TOKEN_ID: u16 = 11;
+const DOUBLE_NEWLINE_TOKEN_ID: u16 = 261;
 const SHORT_SENTENCE_LENGTH: u16 = 30;
 const MAX_SHORT_SENTENCES: u16 = 10;
 
@@ -685,7 +686,7 @@ impl Runtime {
                 (Payload::Busy(context), output) if output.size() > 0 => {
                     let mut probs = output.data().to_vec();
                     let len = context.suffix.0.len();
-                    if len != 0 && context.suffix.0[0] == NEWLINE_TOKEN_ID {
+                    if len != 0 && (context.suffix.0[0] == NEWLINE_TOKEN_ID || context.suffix.0[0] == DOUBLE_NEWLINE_TOKEN_ID) {
                         if context.last_tokens.get_size() != 0 {
                             let new_line_index = context.model_text.len() as u16 - 1;
                             if (new_line_index - context.last_new_line_index < SHORT_SENTENCE_LENGTH) ||
@@ -748,7 +749,7 @@ impl Runtime {
                 continue;
             };
 
-            if last_suffix == NEWLINE_TOKEN_ID && token != NEWLINE_TOKEN_ID {
+            if last_suffix == NEWLINE_TOKEN_ID || last_suffix == DOUBLE_NEWLINE_TOKEN_ID {
                 _ = context.last_tokens.push(token);
             }
 
