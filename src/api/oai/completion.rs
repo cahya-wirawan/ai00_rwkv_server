@@ -41,7 +41,7 @@ impl Default for CompletionRequest {
     fn default() -> Self {
         Self {
             prompt: Array::default(),
-            max_tokens: 256,
+            max_tokens: 1024,
             stop: Array::default(),
             stream: false,
             bias: HashMap::new(),

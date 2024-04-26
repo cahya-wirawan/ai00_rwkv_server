@@ -68,7 +68,7 @@ impl Default for ChatRequest {
         Self {
             messages: Array::default(),
             names: HashMap::new(),
-            max_tokens: 256,
+            max_tokens: 1024,
             stop: Array::Item("@@@@".into()),
             stream: false,
             bias: HashMap::new(),
