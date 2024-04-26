@@ -695,10 +695,8 @@ impl Runtime {
                             if context.short_sentence_counter >= MAX_SHORT_SENTENCES {
                                 probs[0] = f16::from_f32(1.0);
                             }
-                            if context.last_tokens.last() != NEWLINE_TOKEN_ID {
-                                for last_token in context.last_tokens.iter() {
-                                    probs[*last_token as usize] = f16::from_f32(0.0);
-                                }
+                            for last_token in context.last_tokens.iter() {
+                                probs[*last_token as usize] = f16::from_f32(0.0);
                             }
                             context.last_new_line_index = new_line_index;
                         }
@@ -750,7 +748,7 @@ impl Runtime {
                 continue;
             };
 
-            if last_suffix == NEWLINE_TOKEN_ID {
+            if last_suffix == NEWLINE_TOKEN_ID && token != NEWLINE_TOKEN_ID {
                 _ = context.last_tokens.push(token);
             }
 
