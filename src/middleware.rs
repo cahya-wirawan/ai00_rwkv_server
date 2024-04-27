@@ -544,7 +544,8 @@ pub async fn model_route(receiver: Receiver<ThreadRequest>) -> Result<()> {
                         request,
                         sender: token_sender,
                         last_new_line_index: Default::default(),
-                        last_tokens: Default::default(),
+                        last_tokens_after_newline: Default::default(),
+                        last_tokens_after_dot: Default::default(),
                         short_sentence_counter: Default::default(),
                     };
 

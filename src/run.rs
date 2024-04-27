@@ -41,6 +41,7 @@ const GRAMMAR_ARENA_CAPACITY: usize = 1024;
 const NEWLINE_TOKEN_ID: u16 = 11;
 const NEWLINE_DOUBLE_TOKEN_ID: u16 = 261;
 const NEWLINE_SPACE_TOKEN_ID: u16 = 262;
+const DOT_TOKEN_ID: u16 = 47;
 const SHORT_SENTENCE_LENGTH: u16 = 30;
 const MAX_SHORT_SENTENCES: u16 = 10;
 
@@ -240,8 +241,10 @@ pub struct GenerateContext {
     pub last_new_line_index: u16,
     /// New line counter
     pub short_sentence_counter: u16,
-    /// List of last_token
-    pub last_tokens: Fifo,
+    /// List of last_token after new line
+    pub last_tokens_after_newline: Fifo,
+    /// List of last_token after dot
+    pub last_tokens_after_dot: Fifo,
 }
 
 #[derive(Debug)]
@@ -690,20 +693,27 @@ impl Runtime {
                     if len != 0 && (context.suffix.0[0] == NEWLINE_TOKEN_ID ||
                         context.suffix.0[0] == NEWLINE_DOUBLE_TOKEN_ID ||
                         context.suffix.0[0] == NEWLINE_SPACE_TOKEN_ID) {
-                        if context.last_tokens.get_size() != 0 {
+                        if context.last_tokens_after_newline.get_size() != 0 {
                             let new_line_index = context.model_text.len() as u16 - 1;
                             if (new_line_index - context.last_new_line_index < SHORT_SENTENCE_LENGTH) ||
-                                (context.last_tokens.last() >= 50 && context.last_tokens.last() <= 60) ||
-                                (context.last_tokens.last() >= 630 && context.last_tokens.last() <= 720) {
+                                (context.last_tokens_after_newline.last() >= 50 && context.last_tokens_after_newline.last() <= 60) ||
+                                (context.last_tokens_after_newline.last() >= 630 && context.last_tokens_after_newline.last() <= 720) {
                                 context.short_sentence_counter += 1;
                             }
                             if context.short_sentence_counter >= MAX_SHORT_SENTENCES {
                                 probs[0] = f16::from_f32(1.0);
                             }
-                            for last_token in context.last_tokens.iter() {
+                            for last_token in context.last_tokens_after_newline.iter() {
                                 probs[*last_token as usize] = f16::from_f32(0.0);
                             }
                             context.last_new_line_index = new_line_index;
+                        }
+                    }
+                    if len != 0 && (context.suffix.0[0] == DOT_TOKEN_ID) {
+                        if context.last_tokens_after_dot.get_size() != 0 {
+                            for last_token in context.last_tokens_after_dot.iter() {
+                                probs[*last_token as usize] = probs[*last_token as usize] * f16::from_f32(0.5);
+                            }
                         }
                     }
 
@@ -755,7 +765,10 @@ impl Runtime {
 
             if last_suffix == NEWLINE_TOKEN_ID || last_suffix == NEWLINE_DOUBLE_TOKEN_ID ||
                 last_suffix == NEWLINE_SPACE_TOKEN_ID {
-                _ = context.last_tokens.push(token);
+                _ = context.last_tokens_after_newline.push(token);
+            }
+            else if last_suffix == DOT_TOKEN_ID {
+                _ = context.last_tokens_after_dot.push(token);
             }
 
             // cache the prompt if it is too long.
